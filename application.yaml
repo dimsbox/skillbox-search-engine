@@ -1,0 +1,30 @@
+# comments
+server:
+  port: 8080
+
+spring:
+  datasource:
+    username: root
+    password: testtest
+    url: jdbc:mysql://localhost:3306/search_engine?useUnicode=true&characterEncoding=utf8&useSSL=false&requireSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        #ddl-auto: update #Не работает, не создаются таблицы бд =\
+        hbm2ddl:
+          auto: update
+      show-sql: true
+
+indexing-settings:
+  sites:
+    - url: https://skillbox.ru
+      name: Skillbox
+    - url: https://playback.ru
+      name: PlayBack.Ru
+    - url: https://jsoup.org
+      name: Jsoup
+    - url: http://fgwu.ru
+      name: ЦентрРегионВодХоз
+  userAgent: Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) Gecko/20070725 Firefox/2.0.0.6
+  referrer: http://www.google.com
