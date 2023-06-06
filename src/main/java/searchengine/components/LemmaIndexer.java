@@ -1,4 +1,4 @@
-package searchengine.services;
+package searchengine.components;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -9,7 +9,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.stereotype.Component;
 import searchengine.dto.LemmaDTO;
-import searchengine.lemma.LemmaEngine;
+import searchengine.engines.LemmaEngine;
 import searchengine.model.PageModel;
 import searchengine.repository.PageRepository;
 
@@ -33,7 +33,7 @@ public class LemmaIndexer {
         Map<String, Integer> lemmaList = new TreeMap<>();
         Map<String, Integer> titleSiteList;
         Map<String, Integer> bodySiteList;
-        Set<String> allWordsInIndexingSite = new HashSet<>();;
+        Set<String> allWordsInIndexingSite = new HashSet<>();
         String content;
         String title;
         String body;

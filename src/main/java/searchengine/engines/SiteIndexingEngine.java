@@ -1,7 +1,10 @@
-package searchengine.services;
+package searchengine.engines;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import searchengine.components.LemmaIndexer;
+import searchengine.components.PageSearcher;
+import searchengine.components.WebParser;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
 import searchengine.dto.IndexDTO;
@@ -26,7 +29,7 @@ import java.util.concurrent.ForkJoinPool;
 
 @RequiredArgsConstructor
 @Slf4j
-public class SiteIndexed implements Callable<Boolean> {
+public class SiteIndexingEngine implements Callable<Boolean> {
 
     private final PageRepository pageRepository;
     private final SiteRepository siteRepository;
@@ -61,7 +64,7 @@ public class SiteIndexed implements Callable<Boolean> {
                     List<PageDTO> pageDtosList = new CopyOnWriteArrayList<>();
                     List<String> urlList = new CopyOnWriteArrayList<>();
                     ForkJoinPool forkJoinPool = new ForkJoinPool(Runtime.getRuntime().availableProcessors());
-                    List<PageDTO> pages = forkJoinPool.invoke(new PageIndexer(urls,urlList, pageDtosList, sitesListConfiguration));
+                    List<PageDTO> pages = forkJoinPool.invoke(new PageSearcher(urls,urlList, pageDtosList, sitesListConfiguration));
                     log.info(pages.size() + " pages found");
                     pageDtoList = new CopyOnWriteArrayList<>(pages);
                 } else throw new CurrentInterruptedException("Fork join exception!");

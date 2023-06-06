@@ -1,4 +1,4 @@
-package searchengine.services;
+package searchengine.components;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -9,7 +9,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.stereotype.Component;
 import searchengine.dto.IndexDTO;
-import searchengine.lemma.LemmaEngine;
+import searchengine.engines.LemmaEngine;
 import searchengine.model.LemmaModel;
 import searchengine.model.PageModel;
 import searchengine.model.SiteModel;

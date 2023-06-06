@@ -1,4 +1,4 @@
-package searchengine.services;
+package searchengine.components;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +19,7 @@ import java.util.concurrent.RecursiveTask;
 
 @Slf4j
 @RequiredArgsConstructor
-public class PageIndexer extends RecursiveTask<List<PageDTO>> {
+public class PageSearcher extends RecursiveTask<List<PageDTO>> {
     private final String url;
     private final List<String> urlList;
     private final List<PageDTO> pageDtoList;
@@ -47,9 +47,9 @@ public class PageIndexer extends RecursiveTask<List<PageDTO>> {
             pageDtoList.add(pageDto);
             Elements elements = doc.select("body")
                     .select("a");
-            List<PageIndexer> taskList = new ArrayList<>();
+            List<PageSearcher> taskList = new ArrayList<>();
             String link;
-            PageIndexer task;
+            PageSearcher task;
             for (Element el : elements) {
                 link = el.attr("abs:href");
                 if (isSiteElementsType(link)
@@ -58,7 +58,7 @@ public class PageIndexer extends RecursiveTask<List<PageDTO>> {
                         && !link.contains("#")
                         && !urlList.contains(link)) {
                     urlList.add(link);
-                    task = new PageIndexer(link, urlList, pageDtoList, config);
+                    task = new PageSearcher(link, urlList, pageDtoList, config);
                     task.fork();
                     taskList.add(task);
                 }

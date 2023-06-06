@@ -1,6 +1,5 @@
-package searchengine.lemma;
+package searchengine.engines;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import searchengine.config.LemmaConfiguration;
 //import searchengine.exception.CurrentRuntimeException;
