@@ -25,7 +25,6 @@ public record ApiController(StatisticsServiceImpl statisticsService, IndexingSer
 
     @GetMapping("/stopIndexing")
     public ResultDTO stopIndexing() {
-        //log.info("ОСТАНОВКА ИНДЕКСАЦИИ");
         return indexingService.stopIndexing();
     }
 

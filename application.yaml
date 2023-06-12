@@ -11,7 +11,6 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
-        #ddl-auto: update #Не работает, не создаются таблицы бд =\
         hbm2ddl:
           auto: update
       show-sql: true
@@ -22,6 +21,8 @@ indexing-settings:
       name: Skillbox
     - url: https://playback.ru
       name: PlayBack.Ru
+    - url: https://lenta.ru
+      name: Lenta.Ru
     - url: https://jsoup.org
       name: Jsoup
     - url: http://fgwu.ru

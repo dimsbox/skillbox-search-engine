@@ -23,7 +23,13 @@ import java.util.stream.Collectors;
 
 @Component
 @Slf4j
-public record SearchEngine(LemmaEngine lemmaEngine, LemmaRepository lemmaRepository, PageRepository pageRepository, IndexRepository indexRepository) {
+public record SearchEngine(LemmaEngine lemmaEngine, LemmaRepository lemmaRepository, PageRepository pageRepository,
+                           IndexRepository indexRepository) {
+
+    private static final int TITLE_MAX_LENGTH = 300;
+    private static final int SNIPPET_STRINGS_LIMIT = 3;
+    private static final int SNIPPET_PREPEND_WORDS_LIMIT = 4;
+    private static final int SNIPPET_POST_WORDS_LIMIT = 3;
 
     private List<SearchDTO> getSearchDtoList(ConcurrentHashMap<PageModel, Float> pageList,
                                              List<String> textLemmaList) {
@@ -36,6 +42,9 @@ public record SearchEngine(LemmaEngine lemmaEngine, LemmaRepository lemmaReposit
             String site = pageSite.getUrl();
             String siteName = pageSite.getName();
             String title = clearCodeFromTag(content, "title");
+            if (title.length() > TITLE_MAX_LENGTH) {
+                title = title.substring(0, TITLE_MAX_LENGTH);
+            }
             String body = clearCodeFromTag(content, "body");
             titleStringBuilder.append(title).append(body);
             float pageValue = pageList.get(page);
@@ -46,7 +55,7 @@ public record SearchEngine(LemmaEngine lemmaEngine, LemmaRepository lemmaReposit
                 try {
                     lemmaIndex.addAll(lemmaEngine.findLemmaIndexInText(titleStringBuilder.toString(), lemma));
                 } catch (IOException e) {
-                    new IOException(e.getMessage());
+                    throw new RuntimeException(e);
                 }
                 i++;
             }
@@ -70,6 +79,7 @@ public record SearchEngine(LemmaEngine lemmaEngine, LemmaRepository lemmaReposit
         List<String> result = new ArrayList<>();
         int i = 0;
         System.out.println("Поиск на странице, количество лемм " + lemmaIndex.size());
+        Collections.shuffle(lemmaIndex);
         while (i < lemmaIndex.size()) {
             int start = lemmaIndex.get(i);
             int end = content.indexOf(" ", start);
@@ -81,35 +91,39 @@ public record SearchEngine(LemmaEngine lemmaEngine, LemmaRepository lemmaReposit
             }
             i = next - 1;
             String word = content.substring(start, end);
-            int startIndex;
-            int nextIndex;
-            // Если лемма не является последним словом в тексте, то начало сниппета следующий символ после леммы,
-            // иначе начало сниппета это начало леммы
-            if (content.lastIndexOf(" ", start) != -1) {
-                startIndex = content.lastIndexOf(" ", start);
-            } else startIndex = start;
-
-            if (lemmaIndex.size() >= 10 && content.indexOf(" ", (end + lemmaIndex.size() / (lemmaIndex.size() / 10))) != -1) {
-                nextIndex = content.indexOf(" ", end + (lemmaIndex.size() / 10));
-            } else nextIndex = content.indexOf(" ", end);
-            String text = content.substring(startIndex, nextIndex).replace(word, "<b>".concat(word).concat("</b>"));
-            result.add(text);
+            int endTextIndex = end;
+            for (int j = 0; j < SNIPPET_POST_WORDS_LIMIT; j++) {
+                if (content.lastIndexOf(" ", endTextIndex) != -1) {
+                    endTextIndex = content.indexOf(" ", endTextIndex + 1);
+                }
+            }
+            int startTextIndex = start;
+            String prependWordContent = content.substring(0, startTextIndex);
+            for (int j = 0; j < SNIPPET_PREPEND_WORDS_LIMIT; j++) {
+                if (prependWordContent.lastIndexOf(" ") != -1) {
+                    startTextIndex = prependWordContent.lastIndexOf(" ");
+                    prependWordContent = content.substring(0, startTextIndex);
+                }
+            }
+            String text = content.substring(startTextIndex, endTextIndex).replace(word, "<b>".concat(word).concat("</b>"));
+            result.add("..." + text + "..." + "\n");
             i++;
+            if (i == SNIPPET_STRINGS_LIMIT) {
+                i = lemmaIndex.size();
+            }
         }
         result.sort(Comparator.comparing(String::length).reversed());
         return result;
     }
 
     private Map<PageModel, Float> getRelevanceFromPage(List<PageModel> pageList,
-                                                      List<IndexModel> indexList) {
+                                                       List<IndexModel> indexList) {
         Map<PageModel, Float> relevanceMap = new HashMap<>();
-
         int i = 0;
         while (i < pageList.size()) {
             PageModel page = pageList.get(i);
             float relevance = 0;
-            for (int j = 0; j < indexList.size(); j++) {
-                IndexModel index = indexList.get(j);
+            for (IndexModel index : indexList) {
                 if (index.getPage() == page) {
                     relevance += index.getRank();
                 }
@@ -117,9 +131,7 @@ public record SearchEngine(LemmaEngine lemmaEngine, LemmaRepository lemmaReposit
             relevanceMap.put(page, relevance);
             i++;
         }
-
         Map<PageModel, Float> allRelevanceMap = new HashMap<>();
-
         relevanceMap.keySet().forEach(page -> {
             float relevance = relevanceMap.get(page) / Collections.max(relevanceMap.values());
             allRelevanceMap.put(page, relevance);
@@ -155,68 +167,62 @@ public record SearchEngine(LemmaEngine lemmaEngine, LemmaRepository lemmaReposit
             String lemma = words[i];
             try {
                 list = lemmaEngine.getLemma(lemma);
-                lemmaList.addAll(list);
             } catch (IOException e) {
-                new IOException(e.getMessage());
+                throw new RuntimeException(e);
             }
+            lemmaList.addAll(list);
             i++;
         }
         return lemmaList;
     }
 
-    public List<SearchDTO> createSearchDTOList(List<LemmaModel> lemmaList,
-                                               List<String> textLemmaList,
-                                               int start, int limit, List <SiteModel> sites) {
+    public List<SearchDTO> createSearchDTOList(List<LemmaModel> lemmaList, List<String> textLemmaList,
+                                               int start, int limit, List<SiteModel> sites) {
         List<SearchDTO> result = new ArrayList<>();
         pageRepository.flush();
-        int lemmasCount = lemmaList.size();
-        if (lemmasCount >= textLemmaList.size()) {
 
-            //получение страниц по порядку лемм начиная с самой редкой
-            List<PageModel> pagesList = new ArrayList<>();
-            for (int i = lemmasCount; i > 0; i--) {
-                LemmaModel lemmaModel = lemmaList.get(i-1);
-                //первая лемма поиск по всем страницам списка сайтов
-                if (i == lemmasCount) {
-                    pagesList = pageRepository.findByLemma(lemmaModel, sites);
-                //остальные леммы поиск из предыдущего списка страниц
-                } else {
-                    pagesList = pageRepository.findByLemmaFromPagesList(lemmaModel, pagesList, sites);
-                }
+        List<PageModel> pagesList = new ArrayList<>();
+        for (int i = 0; i < textLemmaList.size(); i++) {
+            List<String> currentLemma = new ArrayList<>();
+            currentLemma.add(textLemmaList.get(i));
+            List<LemmaModel> foundLemmaList = new ArrayList<>();
+            for (SiteModel siteModel : sites) {
+                foundLemmaList.addAll(getLemmaModelFromSite(currentLemma, siteModel));
             }
-
-            indexRepository.flush();
-            //получаем индексы всех лемм на всех страницах
-            List<IndexModel> indexesList = indexRepository.findByPageAndLemmas(lemmaList, pagesList);
-            //получаем карту со страницами и их релевантностью
-            Map<PageModel, Float> relevanceMap = getRelevanceFromPage(pagesList, indexesList);
-            //сортируем и обрезаем карту со страницами до отображаемого количества
-            List<Entry<PageModel, Float>> list = new ArrayList<>(relevanceMap.entrySet());
-            list.sort((c1, c2) -> c2.getValue().compareTo(c1.getValue()));
-            List<Entry<PageModel, Float>> listWithTreshold = new ArrayList<>(list);
-            if (list.size() > limit - start) {
-                listWithTreshold = list.subList(start,limit);
+            if (i == 0) {
+                pagesList = pageRepository.findByLemma(foundLemmaList, sites);
+            } else {
+                pagesList = pageRepository.findByLemmaFromPagesList(foundLemmaList, pagesList, sites);
             }
-            relevanceMap.clear();
-            relevanceMap = listWithTreshold.stream().collect(Collectors.toConcurrentMap(Entry::getKey,Entry::getValue));
+        }
+        indexRepository.flush();
 
-            List<SearchDTO> searchDtos = getSearchDtoList((ConcurrentHashMap<PageModel, Float>) relevanceMap, textLemmaList);
-            if (start > searchDtos.size()) {
-                return new ArrayList<>();
+        List<IndexModel> indexesList = indexRepository.findByPageAndLemmas(lemmaList, pagesList);
+        Map<PageModel, Float> relevanceMap = getRelevanceFromPage(pagesList, indexesList);
+        List<Entry<PageModel, Float>> list = new ArrayList<>(relevanceMap.entrySet());
+        list.sort((c1, c2) -> c2.getValue().compareTo(c1.getValue()));
+        List<Entry<PageModel, Float>> listWithTreshold = new ArrayList<>(list);
+        if (list.size() > limit - start) {
+            listWithTreshold = list.subList(start, limit);
+        }
+        relevanceMap.clear();
+        relevanceMap = listWithTreshold.stream().collect(Collectors.toConcurrentMap(Entry::getKey, Entry::getValue));
+
+        List<SearchDTO> searchDtos = getSearchDtoList((ConcurrentHashMap<PageModel, Float>) relevanceMap, textLemmaList);
+        if (start > searchDtos.size()) {
+            return new ArrayList<>();
+        }
+        if (searchDtos.size() > limit) {
+            int i = start;
+            while (i < limit) {
+                result.add(searchDtos.get(i));
+                i++;
             }
-            if (searchDtos.size() > limit) {
-                int i = start;
-                while (i < limit) {
-                    result.add(searchDtos.get(i));
-                    i++;
-                }
-                return result;
-            } else return searchDtos;
-
-        } else return result;
+            return result;
+        } else return searchDtos;
     }
 
-    public  String clearCodeFromTag(String text, String element) {
+    public String clearCodeFromTag(String text, String element) {
         Document doc = Jsoup.parse(text);
         Elements elements = doc.select(element);
         String html = elements.stream().map(Element::html).collect(Collectors.joining());

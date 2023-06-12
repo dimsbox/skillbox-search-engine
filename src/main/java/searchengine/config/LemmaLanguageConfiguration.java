@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Configuration;
 import java.io.IOException;
 
 @Configuration
-public class LemmaConfiguration {
+public class LemmaLanguageConfiguration {
     @Bean
     public LuceneMorphology russianLuceneMorphology() throws IOException {
         return new RussianLuceneMorphology();

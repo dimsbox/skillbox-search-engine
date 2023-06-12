@@ -9,17 +9,11 @@ import java.util.List;
 @Getter
 @Setter
 public class ResultDTO {
-
     private boolean result;
-
     private String error;
-
     private int count;
-
     private HttpStatus status;
-
     private List<SearchDTO> data;
-
     public ResultDTO(boolean result) {
         this.result = result;
     }

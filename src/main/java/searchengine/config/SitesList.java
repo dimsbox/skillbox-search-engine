@@ -13,8 +13,6 @@ import java.util.List;
 @ConfigurationProperties(prefix = "indexing-settings")
 public class SitesList {
     private List<Site> sites;
-    //Mozilla/5.0
     private String userAgent;
-    //http://www.google.com
     private String referrer;
 }

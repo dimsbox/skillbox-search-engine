@@ -86,7 +86,8 @@ public class IndexingServiceImpl implements IndexingService {
         if (isUrlSiteEquals(urlPage)) {
             log.info("Начата переиндексация сайта - " + urlPage);
             executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-            executorService.submit(new SiteIndexingEngine(pageRepository, siteRepository, lemmaRepository, indexRepository, lemmaIndexer, webParser, urlPage, config));
+            executorService.submit(new SiteIndexingEngine(pageRepository, siteRepository, lemmaRepository,
+                    indexRepository, lemmaIndexer, webParser, urlPage, config));
             executorService.shutdown();
             return true;
         } else {
@@ -101,14 +102,11 @@ public class IndexingServiceImpl implements IndexingService {
     @Override
     public ResultDTO urlCheckAndPaging(String url) {
         if (url.isEmpty()) {
-            //log.info("Страница не указана");
             return new ResultDTO(false, "Страница не указана", HttpStatus.BAD_REQUEST);
         } else {
             if (indexPage(url)) {
-                //log.info("Страница - " + url + " - добавлена на переиндексацию");
                 return new ResultDTO(true, HttpStatus.OK);
             } else {
-                //log.info("Указанная страница" + "за пределами конфигурационного файла");
                 return new ResultDTO(false, "Указанная страница" + "за пределами конфигурационного файла", HttpStatus.BAD_REQUEST);
             }
         }

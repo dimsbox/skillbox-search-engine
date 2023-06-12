@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import searchengine.dto.LemmaDTO;
 import searchengine.engines.LemmaEngine;
 import searchengine.model.PageModel;
+import searchengine.model.SiteModel;
 import searchengine.repository.PageRepository;
 
 import java.util.*;
@@ -26,9 +27,9 @@ public class LemmaIndexer {
     private final LemmaEngine lemmaEngine;
     private List<LemmaDTO> lemmaDtoList;
 
-    public void startLemmaIndexer() {
+    public void startLemmaIndexer(SiteModel siteModel) {
         lemmaDtoList = new CopyOnWriteArrayList<>();
-        Iterable<PageModel> pageList = pageRepository.findAll();
+        Iterable<PageModel> pageList = pageRepository.findBySiteId(siteModel);
 
         Map<String, Integer> lemmaList = new TreeMap<>();
         Map<String, Integer> titleSiteList;
@@ -37,7 +38,8 @@ public class LemmaIndexer {
         String content;
         String title;
         String body;
-        for (var page : pageList) {
+        int counter = 0;
+        for (PageModel page : pageList) {
             content = page.getContent();
             title = clearCodeFromTag(content, "title");
             body = clearCodeFromTag(content, "body");
@@ -49,12 +51,13 @@ public class LemmaIndexer {
                 int frequency = lemmaList.getOrDefault(word, 0) + 1;
                 lemmaList.put(word, frequency);
             });
+            System.out.print("Pages " + siteModel.getUrl() + " checked: " + ++counter + "\r");
         }
         for (String lemma : lemmaList.keySet()) {
             Integer frequency = lemmaList.get(lemma);
             lemmaDtoList.add(new LemmaDTO(lemma, frequency));
         }
-        log.info(lemmaDtoList.size() + " lemmas found");
+        log.info(lemmaDtoList.size() + " lemmas found in " + siteModel.getUrl());
     }
 
     public String clearCodeFromTag(String content, String tag) {

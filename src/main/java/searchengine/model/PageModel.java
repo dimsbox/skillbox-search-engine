@@ -28,10 +28,6 @@ public class PageModel implements Serializable {
     @Column(columnDefinition = "MEDIUMTEXT")
     private String content;
 
-
-
-
-
     @OneToMany(mappedBy = "page", cascade = CascadeType.ALL)
     private List<IndexModel> index = new LinkedList<>();
 

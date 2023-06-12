@@ -1,15 +1,14 @@
 package searchengine.engines;
 
 import org.springframework.stereotype.Component;
-import searchengine.config.LemmaConfiguration;
-//import searchengine.exception.CurrentRuntimeException;
+import searchengine.config.LemmaLanguageConfiguration;
 
 import java.io.IOException;
 import java.util.*;
 
 @Component
 
-public record LemmaEngine(LemmaConfiguration lemmaConfiguration) {
+public record LemmaEngine(LemmaLanguageConfiguration lemmaLanguageConfiguration) {
 
 
     public Map<String, Integer> getLemmaMap(String text) {
@@ -35,14 +34,14 @@ public record LemmaEngine(LemmaConfiguration lemmaConfiguration) {
     public List<String> getLemma(String word) throws IOException {
         List<String> lemmaList = new ArrayList<>();
         if (checkLanguage(word).equals("Russian")) {
-            List<String> baseRusForm = lemmaConfiguration.russianLuceneMorphology().getNormalForms(word);
+            List<String> baseRusForm = lemmaLanguageConfiguration.russianLuceneMorphology().getNormalForms(word);
             if (!word.isEmpty() && isCorrectWordForm(word, "Russian")) {
-                lemmaList.addAll(baseRusForm);
+                lemmaList.add(baseRusForm.get(0));
             }
         } else if (checkLanguage(word).equals("English")) {
-            List<String> baseEngForm = lemmaConfiguration.englishLuceneMorphology().getNormalForms(word);
+            List<String> baseEngForm = lemmaLanguageConfiguration.englishLuceneMorphology().getNormalForms(word);
             if (!word.isEmpty() && isCorrectWordForm(word, "English")) {
-                lemmaList.addAll(baseEngForm);
+                lemmaList.add(baseEngForm.get(0));
             }
         }
 
@@ -51,23 +50,21 @@ public record LemmaEngine(LemmaConfiguration lemmaConfiguration) {
 
     private boolean isCorrectWordForm(String word, String language) throws IOException {
         if (language.equals("Russian")) {
-            List<String> morphForm = lemmaConfiguration.russianLuceneMorphology().getMorphInfo(word);
-            for (String l : morphForm) {
-                if (l.contains("ПРЕДЛ") || l.contains("СОЮЗ") || l.contains("МЕЖД") || l.contains("ВВОДН") || l.contains("ЧАСТ") || word.length() <= 1) {
-                    return false;
-                }
-            }
-            return true;
+            List<String> morphForm = lemmaLanguageConfiguration.russianLuceneMorphology().getMorphInfo(word);
+            return checkRussianPartOfSpeech(morphForm.get(0));
         } else if (language.equals("English")) {
-            List<String> morphForm = lemmaConfiguration.englishLuceneMorphology().getMorphInfo(word);
-            for (String l : morphForm) {
-                if (l.contains("МС") || l.contains("CONJ") || l.contains("PART") || l.contains("PREP") ||word.length() <= 1) {
-                    return false;
-                }
-            }
-            return true;
+            List<String> morphForm = lemmaLanguageConfiguration.englishLuceneMorphology().getMorphInfo(word);
+            return checkEnglishPartOfSpeech(morphForm.get(0));
         }
         return false;
+    }
+
+    private boolean checkRussianPartOfSpeech(String s) {
+        return !s.contains("ПРЕДЛ") && !s.contains("СОЮЗ") && !s.contains("МЕЖД") && !s.contains("ВВОДН") && !s.contains("ЧАСТ");
+    }
+
+    private boolean checkEnglishPartOfSpeech(String s) {
+        return !s.contains("МС") && !s.contains("CONJ") && !s.contains("PART") && !s.contains("PREP");
     }
 
 
@@ -91,8 +88,7 @@ public record LemmaEngine(LemmaConfiguration lemmaConfiguration) {
 
     public Collection<Integer> findLemmaIndexInText(String content, String lemma) throws IOException {
         List<Integer> lemmaIndexList = new ArrayList<>();
-        String[] elements = content.toLowerCase(Locale.ROOT)
-                .split("\\p{Punct}|\\s");
+        String[] elements = content.toLowerCase(Locale.ROOT).split("\\p{Punct}|\\s");
         int index = 0;
         List<String> lemmas;
         for (String el : elements) {

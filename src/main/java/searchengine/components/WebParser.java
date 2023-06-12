@@ -26,49 +26,55 @@ import java.util.stream.Collectors;
 @Slf4j
 @Getter
 public class WebParser {
+
+    private final float BODY_TO_TITLE_WEIGHT_COEFFICIENT = 0.8f;
+    private final int ERROR_CODE = 400;
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
     private final LemmaEngine lemmaEngine;
-    private List<IndexDTO> config;
+    private List<IndexDTO> indexDTOList;
 
-    public Void startWebParser(SiteModel site) {
+    public void startWebParser(SiteModel site) {
         Iterable<PageModel> pageList = pageRepository.findBySiteId(site);
         List<LemmaModel> lemmaList = lemmaRepository.findBySiteModelId(site);
-        config = new ArrayList<>();
-        final float RANK_COEF = 0.8f;
+        indexDTOList = new ArrayList<>();
+
         for (PageModel page : pageList) {
-            if (page.getCode() < 400) {
-                long pageId = page.getId();
-                String content = page.getContent();
-                String title = clearCodeFromTag(content, "title");
-                String body = clearCodeFromTag(content, "body");
-                Map<String, Integer> titleSiteList = lemmaEngine.getLemmaMap(title);
-                Map<String, Integer> bodySiteList = lemmaEngine.getLemmaMap(body);
-                float totalRank = 0.0f;
-                float titleRank;
-                float bodyRank;
-                for (LemmaModel lemma : lemmaList) {
-                    long lemmaId = lemma.getId();
-                    String keyWord = lemma.getLemma();
-                    if (titleSiteList.containsKey(keyWord) || bodySiteList.containsKey(keyWord)) {
-                        if (titleSiteList.get(keyWord) != null) {
-                            titleRank = titleSiteList.get(keyWord);
-                            totalRank += titleRank;
-                        }
-                        if (bodySiteList.get(keyWord) != null) {
-                            bodyRank = bodySiteList.get(keyWord) * RANK_COEF;
-                            totalRank += bodyRank;
-                        }
-                        config.add(new IndexDTO(pageId, lemmaId, totalRank));
-                    } else {
-                        log.debug("Lemma not found");
-                    }
-                }
+            if (page.getCode() < ERROR_CODE) {
+                onPageLemmaRanking(page, lemmaList, indexDTOList);
             } else {
                 log.debug("Bad status code - " + page.getCode());
             }
         }
-        return null;
+    }
+
+    private void onPageLemmaRanking(PageModel page, List<LemmaModel> lemmaList, List<IndexDTO> indexDTOList) {
+        long pageId = page.getId();
+        String content = page.getContent();
+        String title = clearCodeFromTag(content, "title");
+        String body = clearCodeFromTag(content, "body");
+        Map<String, Integer> titleSiteList = lemmaEngine.getLemmaMap(title);
+        Map<String, Integer> bodySiteList = lemmaEngine.getLemmaMap(body);
+        float totalRank = 0.0f;
+        float titleRank;
+        float bodyRank;
+        for (LemmaModel lemma : lemmaList) {
+            long lemmaId = lemma.getId();
+            String keyWord = lemma.getLemma();
+            if (titleSiteList.containsKey(keyWord) || bodySiteList.containsKey(keyWord)) {
+                if (titleSiteList.get(keyWord) != null) {
+                    titleRank = titleSiteList.get(keyWord);
+                    totalRank += titleRank;
+                }
+                if (bodySiteList.get(keyWord) != null) {
+                    bodyRank = bodySiteList.get(keyWord) * BODY_TO_TITLE_WEIGHT_COEFFICIENT;
+                    totalRank += bodyRank;
+                }
+                indexDTOList.add(new IndexDTO(pageId, lemmaId, totalRank));
+            } else {
+                log.debug("Lemma not found");
+            }
+        }
     }
 
     public String clearCodeFromTag(String content, String s) {

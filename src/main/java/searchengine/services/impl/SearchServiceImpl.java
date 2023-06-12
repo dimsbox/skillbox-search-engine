@@ -16,6 +16,8 @@ import java.util.List;
 @Service
 public record SearchServiceImpl(SiteRepository siteRepository, SearchEngine searchEngine) implements SearchService {
 
+    private static final int SEARCH_RESULT_LIMIT = 30;
+
     public List<SearchDTO> getSearchFromOneSite(String text, String url, int start, int limit) {
         SiteModel site = siteRepository.findByUrl(url);
         List<String> textLemmaList = searchEngine.getLemmaFromSearchText(text);
@@ -30,42 +32,38 @@ public record SearchServiceImpl(SiteRepository siteRepository, SearchEngine sear
         List<SearchDTO> result = new ArrayList<>();
         List<LemmaModel> foundLemmaList = new ArrayList<>();
         List<String> textLemmaList = searchEngine.getLemmaFromSearchText(text);
-
         int i = 0;
         while (i < siteList.size()) {
             SiteModel site = siteList.get(i);
             foundLemmaList.addAll(searchEngine.getLemmaModelFromSite(textLemmaList, site));
             i++;
         }
-
-        List<SearchDTO> searchData = new ArrayList<>();
-        for (LemmaModel l : foundLemmaList) {
-            searchData = searchEngine.createSearchDTOList(foundLemmaList, textLemmaList, start, limit, siteList);
-            searchData.sort((o1, o2) -> Float.compare(o2.relevance(), o1.relevance()));
-            if (searchData.size() > limit) {
-                int y = start;
-                while (y < limit) {
-                    result.add(searchData.get(y));
-                    y++;
-                }
-                return result;
+        List<SearchDTO> searchData;
+        searchData = searchEngine.createSearchDTOList(foundLemmaList, textLemmaList, start, limit, siteList);
+        searchData.sort((o1, o2) -> Float.compare(o2.relevance(), o1.relevance()));
+        if (searchData.size() > limit) {
+            int y = start;
+            while (y < limit) {
+                result.add(searchData.get(y));
+                y++;
             }
+            return result;
         }
         return searchData;
     }
+
     @Override
     public ResultDTO searchSiteSelect(String query, String site, int offset) {
         List<SearchDTO> searchData;
         if (!site.isEmpty()) {
             if (siteRepository.findByUrl(site) == null) {
-
                 return new ResultDTO(false, "Данная страница находится за пределами сайтов,\n" +
-                        "указанных в конфигурационном файле", HttpStatus.BAD_REQUEST) ;
+                        "указанных в конфигурационном файле", HttpStatus.BAD_REQUEST);
             } else {
-                searchData = getSearchFromOneSite(query, site, offset, 30);
+                searchData = getSearchFromOneSite(query, site, offset, SEARCH_RESULT_LIMIT);
             }
         } else {
-            searchData = getFullSearch(query, offset, 30);
+            searchData = getFullSearch(query, offset, SEARCH_RESULT_LIMIT);
         }
         return new ResultDTO(true, searchData.size(), searchData, HttpStatus.OK);
     }

@@ -40,7 +40,6 @@ public class SiteIndexingEngine implements Callable<Boolean> {
     private final String url;
     private final SitesList sitesListConfiguration;
 
-    //This method starts indexing sites, and set in model...
 
     @Override
     public Boolean call() {
@@ -65,24 +64,24 @@ public class SiteIndexingEngine implements Callable<Boolean> {
                     List<String> urlList = new CopyOnWriteArrayList<>();
                     ForkJoinPool forkJoinPool = new ForkJoinPool(Runtime.getRuntime().availableProcessors());
                     List<PageDTO> pages = forkJoinPool.invoke(new PageSearcher(urls,urlList, pageDtosList, sitesListConfiguration));
-                    log.info(pages.size() + " pages found");
+                    log.info(pages.size() + " pages found in " + url);
                     pageDtoList = new CopyOnWriteArrayList<>(pages);
                 } else throw new CurrentInterruptedException("Fork join exception!");
                 List<PageModel> pageList = new CopyOnWriteArrayList<>();
                 int start;
                 String pagePath;
                 for (PageDTO page : pageDtoList) {
-                    start = page.url().indexOf(url) + url.length();
+                    start = checkUrlWww(page, url);
                     pagePath = page.url().substring(start);
                     pageList.add(new PageModel(site, pagePath, page.code(), page.content()));
                 }
                 pageRepository.saveAllAndFlush(pageList);
-                log.info("All pages saved");
+                log.info("All pages saved " + url);
             } else {
                 throw new CurrentInterruptedException("Local interrupted exception.");
             }
             new LemmaIndexing().saveLemmasInLemmaDTO();
-            log.info("All lemmas saved");
+            log.info("All lemmas saved " + url);
             new AllSiteIndexing().getSiteAllIndexing(site);
         } catch (CurrentInterruptedException e) {
             log.error("WebParser stopped from ".concat(url).concat(". ").concat(e.getMessage()));
@@ -90,6 +89,14 @@ public class SiteIndexingEngine implements Callable<Boolean> {
             new CurrentInterruptedException("Interrupted exception");
         }
         return true;
+    }
+
+    private int checkUrlWww(PageDTO page, String url) {
+        if (!page.url().contains(url)) {
+            String urlWithWww = url.replaceFirst("://","://www.");
+            return page.url().indexOf(urlWithWww) + urlWithWww.length();
+        }
+        return page.url().indexOf(url) + url.length();
     }
 
     private String getSiteName() {
@@ -125,10 +132,9 @@ public class SiteIndexingEngine implements Callable<Boolean> {
             if (!Thread.interrupted()) {
                 SiteModel siteModel = siteRepository.findByUrl(url);
                 siteModel.setStatusTime(new Date());
-                lemmaIndexer.startLemmaIndexer();
+                lemmaIndexer.startLemmaIndexer(siteModel);
                 List<LemmaDTO> lemmaDtoList = lemmaIndexer.getLemmaDtoList();
                 List<LemmaModel> lemmaList = new CopyOnWriteArrayList<>();
-
                 for (LemmaDTO lemmaDto : lemmaDtoList) {
                     lemmaList.add(new LemmaModel(lemmaDto.lemma(), lemmaDto.frequency(), siteModel));
                 }
@@ -143,21 +149,18 @@ public class SiteIndexingEngine implements Callable<Boolean> {
         protected void getSiteAllIndexing(SiteModel site) throws CurrentInterruptedException {
             if (!Thread.interrupted()) {
                 webParser.startWebParser(site);
-                log.info("WebParser ended parsing");
-                List<IndexDTO> indexDtoList = new CopyOnWriteArrayList<>(webParser.getConfig());
+                List<IndexDTO> indexDtoList = new CopyOnWriteArrayList<>(webParser.getIndexDTOList());
                 List<IndexModel> indexModels = new CopyOnWriteArrayList<>();
                 site.setStatusTime(new Date());
                 PageModel page;
                 LemmaModel lemma;
-                log.info("indexDtoList size: " + indexDtoList.size());
+                log.info(site.getUrl() + " indexList size: " + indexDtoList.size());
                 int count = 1;
                 for (IndexDTO indexDto : indexDtoList) {
                     page = pageRepository.getById(indexDto.pageID());
                     lemma = lemmaRepository.getById(indexDto.lemmaID());
                     indexModels.add(new IndexModel(page, lemma, indexDto.rank()));
-                    if (count % 100 == 0) {
-                        System.out.print(count + " из " + indexDtoList.size() + "\r");
-                    }
+                    counter(count, indexDtoList.size());
                     count++;
                 }
                 log.info("indexModels filled");
@@ -169,6 +172,12 @@ public class SiteIndexingEngine implements Callable<Boolean> {
 
             } else {
                 throw new CurrentInterruptedException("Invalid getSiteAllIndexing");
+            }
+        }
+
+        private void counter(int count, int size) {
+            if (count % 100 == 0) {
+                System.out.print(count + " from " + size + "\r");
             }
         }
     }
