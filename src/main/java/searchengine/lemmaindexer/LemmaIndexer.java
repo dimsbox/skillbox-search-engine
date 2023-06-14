@@ -1,4 +1,4 @@
-package searchengine.components;
+package searchengine.lemmaindexer;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

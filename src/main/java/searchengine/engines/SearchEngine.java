@@ -49,42 +49,37 @@ public record SearchEngine(LemmaEngine lemmaEngine, LemmaRepository lemmaReposit
             titleStringBuilder.append(title).append(body);
             float pageValue = pageList.get(page);
             List<Integer> lemmaIndex = new ArrayList<>();
-            int i = 0;
-            while (i < textLemmaList.size()) {
-                String lemma = textLemmaList.get(i);
+            for (String lemma : textLemmaList) {
                 try {
                     lemmaIndex.addAll(lemmaEngine.findLemmaIndexInText(titleStringBuilder.toString(), lemma));
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
-                i++;
             }
             Collections.sort(lemmaIndex);
-            StringBuilder snippetBuilder = new StringBuilder();
             List<String> wordList = getWordsFromSiteContent(titleStringBuilder.toString(), lemmaIndex);
-            int y = 0;
-            while (y < wordList.size()) {
-                snippetBuilder.append(wordList.get(y)).append(".");
-                if (y > 3) {
-                    break;
-                }
-                y++;
-            }
+            StringBuilder snippetBuilder = buildSnippet(wordList);
             searchDtoList.add(new SearchDTO(site, siteName, uri, title, snippetBuilder.toString(), pageValue));
         }
         return searchDtoList;
     }
 
+    private StringBuilder buildSnippet(List<String> wordList) {
+        StringBuilder snippet = new StringBuilder();
+        for (String s : wordList) {
+            snippet.append(s).append(" ");
+        }
+        return snippet;
+    }
+
     private List<String> getWordsFromSiteContent(String content, List<Integer> lemmaIndex) {
         List<String> result = new ArrayList<>();
-        int i = 0;
         System.out.println("Поиск на странице, количество лемм " + lemmaIndex.size());
         Collections.shuffle(lemmaIndex);
-        while (i < lemmaIndex.size()) {
+        for (int i = 0; i < SNIPPET_STRINGS_LIMIT; i++) {
             int start = lemmaIndex.get(i);
             int end = content.indexOf(" ", start);
             int next = i + 1;
-            // Если следующая лемма не дальше 4 символов от текущей, то концом сниппета будет следующая лемма
             while (next < lemmaIndex.size() && 0 < lemmaIndex.get(next) - end && lemmaIndex.get(next) - end < 5) {
                 end = content.indexOf(" ", lemmaIndex.get(next));
                 next += 1;
@@ -107,10 +102,6 @@ public record SearchEngine(LemmaEngine lemmaEngine, LemmaRepository lemmaReposit
             }
             String text = content.substring(startTextIndex, endTextIndex).replace(word, "<b>".concat(word).concat("</b>"));
             result.add("..." + text + "..." + "\n");
-            i++;
-            if (i == SNIPPET_STRINGS_LIMIT) {
-                i = lemmaIndex.size();
-            }
         }
         result.sort(Comparator.comparing(String::length).reversed());
         return result;

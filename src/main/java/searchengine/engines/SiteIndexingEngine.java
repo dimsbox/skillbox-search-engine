@@ -2,9 +2,9 @@ package searchengine.engines;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import searchengine.components.LemmaIndexer;
-import searchengine.components.PageSearcher;
-import searchengine.components.WebParser;
+import searchengine.lemmaindexer.LemmaIndexer;
+import searchengine.pagesearch.PageSearcher;
+import searchengine.parser.WebParser;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
 import searchengine.dto.IndexDTO;
